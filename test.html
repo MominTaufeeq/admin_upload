@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Test</title>
+    <style>
+        body {
+            font-family: monospace;
+            padding: 20px;
+            background: #1e1e1e;
+            color: #d4d4d4;
+        }
+
+        .test-section {
+            background: #252526;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            border: 1px solid #3e3e42;
+        }
+
+        h2 {
+            color: #4ec9b0;
+            margin-bottom: 15px;
+        }
+
+        button {
+            background: #0e639c;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+
+        button:hover {
+            background: #1177bb;
+        }
+
+        .result {
+            background: #1e1e1e;
+            padding: 15px;
+            margin-top: 15px;
+            border-radius: 4px;
+            border: 1px solid #3e3e42;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .success {
+            color: #4ec9b0;
+        }
+
+        .error {
+            color: #f48771;
+        }
+
+        .info {
+            color: #569cd6;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>🔧 API Testing Tool</h1>
+
+    <div class="test-section">
+        <h2>Test 1: Check API Status (GET)</h2>
+        <button onclick="testGetAPI()">Test GET Request</button>
+        <div id="result1" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 2: Upload CSV File (POST)</h2>
+        <input type="file" id="testFile" accept=".csv,.xlsx,.xls">
+        <button onclick="testUpload()">Test Upload</button>
+        <div id="result2" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 3: Check File Path</h2>
+        <button onclick="checkPath()">Check api.php Location</button>
+        <div id="result3" class="result"></div>
+    </div>
+
+    <script>
+        const API_URL = 'api.php'; // Change this if your api.php is in a different location
+
+        async function testGetAPI() {
+            const result = document.getElementById('result1');
+            result.innerHTML = '<span class="info">Testing GET request...</span>';
+
+            try {
+                const response = await fetch(API_URL);
+                const data = await response.json();
+
+                result.innerHTML = `
+<span class="success">✓ API is working!</span>
+
+Response:
+${JSON.stringify(data, null, 2)}
+                `;
+            } catch (error) {
+                result.innerHTML = `
+<span class="error">✗ Error:</span>
+${error.message}
+
+<span class="info">Possible causes:</span>
+1. api.php file not found at path: ${API_URL}
+2. PHP not running
+3. File permissions issue
+                `;
+            }
+        }
+
+        async function testUpload() {
+            const result = document.getElementById('result2');
+            const fileInput = document.getElementById('testFile');
+
+            if (!fileInput.files.length) {
+                result.innerHTML = '<span class="error">Please select a file first</span>';
+                return;
+            }
+
+            result.innerHTML = '<span class="info">Uploading file...</span>';
+
+            const formData = new FormData();
+            formData.append('excel_file', fileInput.files[0]);
+
+            try {
+                const response = await fetch(API_URL + '?action=upload_excel', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                // Check content type
+                const contentType = response.headers.get('content-type');
+                result.innerHTML = `<span class="info">Content-Type: ${contentType}</span>\n\n`;
+
+                if (contentType && contentType.includes('application/json')) {
+                    const data = await response.json();
+                    result.innerHTML += `
+<span class="success">✓ Upload successful!</span>
+
+Response:
+${JSON.stringify(data, null, 2)}
+                    `;
+                } else {
+                    const text = await response.text();
+                    result.innerHTML += `
+<span class="error">✗ Server returned HTML instead of JSON</span>
+
+Response (first 500 chars):
+${text.substring(0, 500)}
+
+<span class="info">This usually means:</span>
+1. PHP error occurred
+2. api.php path is wrong
+3. Check server error logs
+                    `;
+                }
+            } catch (error) {
+                result.innerHTML = `
+<span class="error">✗ Error:</span>
+${error.message}
+                `;
+            }
+        }
+
+        async function checkPath() {
+            const result = document.getElementById('result3');
+            result.innerHTML = '<span class="info">Checking paths...</span>';
+
+            const paths = [
+                'api.php',
+                './api.php',
+                '../api.php',
+                '/api.php'
+            ];
+
+            let findings = '<span class="info">Testing different paths:</span>\n\n';
+
+            for (const path of paths) {
+                try {
+                    const response = await fetch(path);
+                    const contentType = response.headers.get('content-type');
+
+                    if (contentType && contentType.includes('application/json')) {
+                        findings += `<span class="success">✓ FOUND at: ${path}</span>\n`;
+                    } else {
+                        findings += `<span class="error">✗ ${path} - Returns HTML</span>\n`;
+                    }
+                } catch (error) {
+                    findings += `<span class="error">✗ ${path} - Not found</span>\n`;
+                }
+            }
+
+            findings += `\n<span class="info">Current page URL:</span>\n${window.location.href}`;
+            findings += `\n\n<span class="info">Suggested path:</span>\nUse the path that shows "✓ FOUND"`;
+
+            result.innerHTML = findings;
+        }
+
+        // Auto-test on load
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                testGetAPI();
+            }, 500);
+        });
+    </script>
+</body>
+
+</html>
